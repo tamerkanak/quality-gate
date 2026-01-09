@@ -11,8 +11,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "node dist/test.js",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "quality-gate",
