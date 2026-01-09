@@ -8,7 +8,10 @@ export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 // Pattern types for safety scan
 export type PatternType =
     | 'eval'
+    | 'indirect-eval'
+    | 'window.eval'
     | 'Function'
+    | 'Function.prototype.constructor'
     | 'innerHTML'
     | 'outerHTML'
     | 'document.write'

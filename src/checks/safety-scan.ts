@@ -25,10 +25,28 @@ const PATTERNS: PatternDefinition[] = [
         description: 'Code injection vulnerability'
     },
     {
+        name: 'indirect-eval',
+        regex: /\(0,\s*eval\)\s*\(/g,
+        severity: 'CRITICAL',
+        description: 'Indirect eval - code injection vulnerability'
+    },
+    {
+        name: 'window.eval',
+        regex: /window\.eval\s*\(/g,
+        severity: 'CRITICAL',
+        description: 'Window eval - code injection vulnerability'
+    },
+    {
         name: 'Function',
         regex: /\bnew\s+Function\s*\(/g,
         severity: 'CRITICAL',
         description: 'Dynamic code execution'
+    },
+    {
+        name: 'Function.prototype.constructor',
+        regex: /Function\.prototype\.constructor\s*\(/g,
+        severity: 'CRITICAL',
+        description: 'Function constructor - dynamic code execution'
     },
     {
         name: 'innerHTML',
