@@ -44,7 +44,7 @@ export interface RuntimeResult {
     consoleErrors: string[];
     uncaughtExceptions: string[];
     canvasFound: boolean;
-    canvasDimensions: { width: number; height: number } | null;
+    canvasDimensions: { width: number; height: number; count?: number } | null;
     screenshotPath?: string;
 }
 

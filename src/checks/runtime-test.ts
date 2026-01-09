@@ -74,21 +74,32 @@ export async function runtimeTest(
         const fileUrl = `file://${path.resolve(indexPath)}`;
         await page.goto(fileUrl, { timeout });
 
-        // Wait for canvas
-        let canvasInfo: { width: number; height: number } | null = null;
+        // Wait for canvas (support multiple canvas - Phaser layers)
+        let canvasInfo: { width: number; height: number; count?: number } | null = null;
         try {
             await page.waitForSelector('canvas', { timeout: 10000 });
 
             // Wait for game to initialize
             await page.waitForTimeout(GAME_INIT_WAIT);
 
-            // Get canvas info
+            // Get canvas info - handle multiple canvases (layered setup)
             canvasInfo = await page.evaluate(() => {
-                const canvas = document.querySelector('canvas');
-                if (!canvas) return null;
+                const canvases = document.querySelectorAll('canvas');
+                if (canvases.length === 0) return null;
+
+                // Find the main canvas (largest by area)
+                let mainCanvas = canvases[0] as HTMLCanvasElement;
+                for (let i = 1; i < canvases.length; i++) {
+                    const canvas = canvases[i] as HTMLCanvasElement;
+                    if (canvas.width * canvas.height > mainCanvas.width * mainCanvas.height) {
+                        mainCanvas = canvas;
+                    }
+                }
+
                 return {
-                    width: canvas.width,
-                    height: canvas.height
+                    width: mainCanvas.width,
+                    height: mainCanvas.height,
+                    count: canvases.length
                 };
             });
         } catch {
