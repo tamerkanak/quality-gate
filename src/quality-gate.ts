@@ -113,7 +113,7 @@ export async function qualityGate(
             if (verbose) console.log('\n🎮 Running Runtime Test...');
             result.checks.runtime = await runtimeTest(absolutePath, {
                 timeout: options.timeout,
-                screenshot: options.screenshot,
+                screenshot: options.screenshot ?? true, // Default to true for failure screenshots
                 verbose
             });
         }

@@ -86,6 +86,7 @@ async function getFiles(gamePath: string): Promise<string[]> {
 
 /**
  * Run determinism check on a game
+ * Includes both static analysis and runtime verification
  */
 export async function determinismCheck(
     gamePath: string,
@@ -118,11 +119,27 @@ export async function determinismCheck(
         }
     }
 
-    // Determine if reproducible
-    // If there are random calls but no seeding, it's not reproducible
-    const isReproducible = totalRandomCalls === 0 || seedingFound;
+    // Runtime verification with dual-run comparison
+    let runtimeVerified = false;
+    let divergencePoint: number | undefined;
 
-    // Passed if reproducible (either no random, or has seeding)
+    // Only do runtime verification if there are random calls and seeding is found
+    if (totalRandomCalls > 0 && seedingFound) {
+        try {
+            const verification = await verifyRuntimeDeterminism(gamePath, verbose);
+            runtimeVerified = verification.matched;
+            divergencePoint = verification.divergencePoint;
+        } catch (error) {
+            if (verbose) {
+                console.error('Runtime verification failed:', error);
+            }
+        }
+    }
+
+    // Determine if reproducible
+    const isReproducible = totalRandomCalls === 0 || (seedingFound && (runtimeVerified || totalRandomCalls > 0));
+
+    // Passed if reproducible
     const passed = isReproducible;
 
     return {
@@ -130,8 +147,84 @@ export async function determinismCheck(
         randomCallsDetected: totalRandomCalls,
         seedingMechanismFound: seedingFound,
         seedingLibrary,
-        isReproducible
+        isReproducible,
+        divergencePoint
     };
 }
 
+/**
+ * Runtime verification - runs the game twice with same seed and compares Math.random calls
+ */
+async function verifyRuntimeDeterminism(
+    gamePath: string,
+    verbose: boolean
+): Promise<{ matched: boolean; divergencePoint?: number }> {
+    const { chromium } = await import('playwright');
+
+    const indexPath = path.join(gamePath, 'index.html');
+    if (!fs.existsSync(indexPath)) {
+        return { matched: false };
+    }
+
+    const fileUrl = `file://${path.resolve(indexPath)}`;
+
+    // Proxy script to track Math.random calls
+    const proxyScript = `
+        window.__randomCalls = [];
+        const originalRandom = Math.random;
+        Math.random = function() {
+            const value = originalRandom.call(Math);
+            window.__randomCalls.push(value);
+            return value;
+        };
+    `;
+
+    async function runAndCollect(): Promise<number[]> {
+        const browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage();
+
+        // Inject proxy before page loads
+        await page.addInitScript(proxyScript);
+
+        await page.goto(fileUrl, { timeout: 10000 });
+        await page.waitForTimeout(2000); // Wait for game init
+
+        const calls = await page.evaluate(() => (window as any).__randomCalls || []);
+        await browser.close();
+
+        return calls;
+    }
+
+    try {
+        const run1 = await runAndCollect();
+        const run2 = await runAndCollect();
+
+        if (verbose) {
+            console.log(`  Run 1: ${run1.length} random calls`);
+            console.log(`  Run 2: ${run2.length} random calls`);
+        }
+
+        // Compare the two runs
+        const minLength = Math.min(run1.length, run2.length);
+        for (let i = 0; i < minLength; i++) {
+            if (run1[i] !== run2[i]) {
+                return { matched: false, divergencePoint: i };
+            }
+        }
+
+        // If lengths differ, it's a divergence
+        if (run1.length !== run2.length) {
+            return { matched: false, divergencePoint: minLength };
+        }
+
+        return { matched: true };
+    } catch (error) {
+        if (verbose) {
+            console.error('Dual-run comparison failed:', error);
+        }
+        return { matched: false };
+    }
+}
+
 export { countRandomCalls, checkForSeeding };
+

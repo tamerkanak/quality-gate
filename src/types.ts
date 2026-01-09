@@ -55,6 +55,8 @@ export interface DeterminismResult {
     seedingMechanismFound: boolean;
     seedingLibrary?: string;
     isReproducible: boolean;
+    divergencePoint?: number;
+    runtimeVerified?: boolean;
 }
 
 // Fix result
